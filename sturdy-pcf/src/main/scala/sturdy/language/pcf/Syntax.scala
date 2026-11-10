@@ -12,6 +12,8 @@ enum Exp extends Labeled:
   case Lam(x: String, body: Exp)
   case App(fun: Exp, arg: Exp)
   case Rec(f: String, body: Exp)
+  case Constructor(name: String, arguments: Seq[Exp])
+  case Match(scrutinee: Exp, cases: Seq[MatchClause])
 
 enum BinOp:
   case Add
@@ -19,6 +21,8 @@ enum BinOp:
   case Mul
   case Eq
   case Gt
+
+case class MatchClause(constructor: String, parameters: Seq[String], body: Exp)
 
 case class Program(toplevel: Seq[(String, Exp)]):
   lazy val definitions: Map[String, Exp] = toplevel.toMap

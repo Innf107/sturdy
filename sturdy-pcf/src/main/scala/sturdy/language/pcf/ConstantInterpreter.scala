@@ -6,6 +6,7 @@ import sturdy.effect.environment.{Box, ClosableEnvironment, ConcreteCyclicEnviro
 import sturdy.effect.failure.{CollectedFailures, ConcreteFailure, Failure}
 import sturdy.effect.userinput.CUserInput
 import sturdy.fix.StackConfig.StackedStates
+import sturdy.values.adts.{ADTConstructor, ADTConstructorOps, ADTMatching, ConcreteADTConstructorOps, LiftedADTConstructorOps, ToppedADTConstructorOps, ToppedADTMatching, ConcreteADTMatching}
 import sturdy.{fix, values}
 import sturdy.values.{Abstractly, Finite, Join, Powerset, Topped, given}
 import sturdy.values.booleans.{BooleanBranching, given}
@@ -18,6 +19,7 @@ object ConstantInterpreter extends Interpreter:
   override type VInt = Topped[Int]
   override type VBoolean = Topped[Boolean]
   override type VClosure = Powerset[Closure[String, Exp, Env]]
+  override type VADTConstructor = Topped[ADTConstructor[String, Value]]
   // todo finite closure representation, maybe: Map[Lam, Env]
   override type Env = Map[String, Box[Value]]
 
@@ -41,11 +43,11 @@ object ConstantInterpreter extends Interpreter:
         val acl = Closure(cl.params, cl.body, aenv)
         Value.Closure(Powerset(acl))
 
-
   class Instance(nextInput: () => Value) extends GenericInstance:
     override def jv: NoJoin[Value] = implicitly
 
     override val failure: CollectedFailures[PCFFailure] = new CollectedFailures[PCFFailure]
+
     given Failure = failure
 
     override val intOps: IntegerOps[Int, Value] = implicitly
@@ -53,6 +55,12 @@ object ConstantInterpreter extends Interpreter:
     override val orderingOps: OrderingOps[Value, Value] = implicitly
     override val branchOps: BooleanBranching[Value, Value] = implicitly
     override val closureOps: ClosureOps[String, Exp, Env, Value, Value] = implicitly
+    override val adtConstructorOps: ADTConstructorOps[String, Value, Value] =
+      ValueADTConstructorOps(using ToppedADTConstructorOps[String, Value, ADTConstructor[String, Value]])
+
+    override val adtMatching: ADTMatching[String, Value, Value, Value] =
+      ValueADTMatching
+        (using ToppedADTMatching[String, Value, ADTConstructor[String, Value], Value])
 
     override val input: CUserInput[Value] = new CUserInput(nextInput)
     override val environment = new ConcreteCyclicEnvironment[String, Value](Map.empty)

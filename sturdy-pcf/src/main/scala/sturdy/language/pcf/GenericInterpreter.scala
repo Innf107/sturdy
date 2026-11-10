@@ -9,6 +9,7 @@ import sturdy.effect.userinput.UserInput
 import sturdy.fix
 import sturdy.util.{IntLabel, Labeled}
 import sturdy.values.Finite
+import sturdy.values.adts.{ADTConstructor, ADTConstructorOps, ADTMatching}
 import sturdy.values.booleans.BooleanBranching
 import sturdy.values.closures.ClosureOps
 import sturdy.values.integer.IntegerOps
@@ -19,6 +20,8 @@ import scala.collection.immutable.List
 enum PCFFailure extends FailureKind:
   case UnboundVariable
   case TypeError
+  case NoMatchingPattern
+
 given Finite[PCFFailure] with {}
 
 import PCFFailure.*
@@ -31,6 +34,8 @@ trait GenericInterpreter[V, Env, J[_] <: MayJoin[_]]:
   val orderingOps: OrderingOps[V, V]
   val branchOps: BooleanBranching[V, V]
   val closureOps: ClosureOps[String, Exp, Env, V, V]
+  val adtConstructorOps: ADTConstructorOps[String, V, V]
+  val adtMatching: ADTMatching[String, V, V, V]
 
   // effect operations
   val failure: Failure
@@ -38,6 +43,7 @@ trait GenericInterpreter[V, Env, J[_] <: MayJoin[_]]:
   val input: UserInput[V]
 
   val effectStack: EffectStack = new EffectStack(EffectList(failure, environment, input))
+
   given EffectStack = effectStack
 
   // joins
@@ -48,6 +54,7 @@ trait GenericInterpreter[V, Env, J[_] <: MayJoin[_]]:
   val fixpoint: EffectStack ?=> fix.Fixpoint[Exp, V]
 
   private lazy val fixed = fixpoint(eval_open)
+
   inline def external[A](f: Fixed ?=> A): A = f(using fixed)
 
 
@@ -96,6 +103,20 @@ trait GenericInterpreter[V, Env, J[_] <: MayJoin[_]]:
         eval(body)
       }
       rec
+    case Exp.Constructor(constructorName, arguments) =>
+      val argumentValues = arguments.map(eval)
+      adtConstructorOps.constructor(ADTConstructor(constructorName, argumentValues))
+    case Exp.Match(scrutineeExpr, cases) =>
+      val scrutineeValue = eval(scrutineeExpr)
+
+      def evalClause(clause: MatchClause, next: () => V): () => V = () => {
+        adtMatching.matches(scrutineeValue, clause.constructor, clause.parameters, environment, eval(clause.body), next())
+      }
+
+      // We need to use an explicit function here to stop once we hit a clause that matches.
+      // In particular, we should avoid evaluating adtMatching.matchFailure() too early since
+      // that will throw an exception in the concrete interpreter.
+      cases.foldRight(() => adtMatching.matchFailure())(evalClause)()
 
   def eval(e: Exp)(using rec: Fixed): V = rec(e)
 

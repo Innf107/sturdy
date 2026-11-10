@@ -1,7 +1,9 @@
 package sturdy.language.pcf
 
 import sturdy.data.MayJoin
+import sturdy.effect.environment.Environment
 import sturdy.effect.failure.Failure
+import sturdy.values.adts.{ADTConstructorOps, ADTMatching, LiftedADTConstructorOps, LiftedADTMatching}
 import sturdy.values.{Combine, MaybeChanged, PartialOrder, Widen, Widening}
 import sturdy.values.booleans.BooleanBranching
 import sturdy.values.booleans.LiftedBooleanBranching
@@ -20,6 +22,7 @@ trait Interpreter:
   type VInt
   type VClosure
   type VBoolean
+  type VADTConstructor
   type Env
 
   def boolean(b: VBoolean): Value
@@ -29,6 +32,7 @@ trait Interpreter:
   enum Value:
     case Int(i: VInt)
     case Closure(closure: VClosure)
+    case Constructor(constructor: VADTConstructor)
 
     def asInt(using failure: Failure): VInt = this match
       case Int(i) => i
@@ -36,6 +40,9 @@ trait Interpreter:
     def asClosure(using Failure): VClosure = this match
       case Closure(closure) => closure
       case _ => Failure(TypeError, s"Expected Closure but got $this")
+    def asConstructor(using Failure): VADTConstructor = this match
+      case Constructor(constructor) => constructor
+      case _ => Failure(TypeError, s"Expected ADTConstructor but got $this")
 
   given CombineValue[W <: Widening](using Combine[VInt, W], Combine[VClosure, W]): Combine[Value, W] with
     override def apply(v1: Value, v2: Value): MaybeChanged[Value] = (v1, v2) match
@@ -63,6 +70,10 @@ trait Interpreter:
     new LiftedBooleanBranching(asBoolean)
   given ValueClosureOps(using Failure, ClosureOps[String, Exp, Env, Value, VClosure]): ClosureOps[String, Exp, Env, Value, Value] =
     new LiftedClosureOps(_.asClosure, Value.Closure.apply)
+  given ValueADTConstructorOps(using ADTConstructorOps[String, Value, VADTConstructor]): ADTConstructorOps[String, Value, Value] =
+    new LiftedADTConstructorOps(Value.Constructor.apply)
+  given ValueADTMatching(using Failure, ADTMatching[String, Value, VADTConstructor, Value]): ADTMatching[String, Value, Value, Value] =
+    new LiftedADTMatching(_.asConstructor)
 
   type Instance <: GenericInstance
   abstract class GenericInstance extends GenericInterpreter[Value, Env, J]:

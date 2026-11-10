@@ -7,6 +7,7 @@ import sturdy.effect.environment.ConcreteCyclicEnvironment
 import sturdy.effect.failure.{CollectedFailures, ConcreteFailure, Failure}
 import sturdy.effect.userinput.CUserInput
 import sturdy.fix
+import sturdy.values.adts.{ADTConstructor, ADTConstructorOps, ADTMatching, ConcreteADTConstructorOps, ConcreteADTMatching}
 import sturdy.values.booleans.{BooleanBranching, given}
 import sturdy.values.closures.{Closure, ClosureOps, given}
 import sturdy.values.integer.{IntegerOps, given}
@@ -18,6 +19,7 @@ object ConcreteInterpreter extends Interpreter:
   override type VInt = Int
   override type VBoolean = Boolean
   override type VClosure = Closure[String, Exp, Env]
+  override type VADTConstructor = ADTConstructor[String, Value]
   override type Env = Map[String, Box[Value]]
 
   override def asBoolean(v: Value)(using Failure): Boolean = v match
@@ -36,6 +38,8 @@ object ConcreteInterpreter extends Interpreter:
     override val orderingOps: OrderingOps[Value, Value] = implicitly
     override val branchOps: BooleanBranching[Value, Value] = implicitly
     override val closureOps: ClosureOps[String, Exp, Env, Value, Value] = implicitly
+    override val adtConstructorOps: ADTConstructorOps[String, Value, Value] = implicitly
+    override val adtMatching: ADTMatching[String, Value, Value, Value] = implicitly
 
     override val input: CUserInput[Value] = new CUserInput(nextInput)
     override val environment = new ConcreteCyclicEnvironment[String, Value](Map.empty)

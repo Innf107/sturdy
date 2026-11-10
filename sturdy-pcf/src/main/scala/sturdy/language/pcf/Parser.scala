@@ -34,6 +34,8 @@ object Parser:
     val KLAM = "lam"
     val KREC = "rec"
     val KREAD = "read"
+    val KCASE = "case"
+    val KOF = "of"
   }
   import LanguageKeywords.*
 
@@ -42,7 +44,9 @@ object Parser:
     KELSE,
     KLAM,
     KREC,
-    KREAD
+    KREAD,
+    KCASE,
+    KOF
   )
 
   def keyword(s: String): P[Unit] =
